@@ -10,11 +10,18 @@ enum EFrameFormat
 	eFF_Grayscale,
 	eFF_BGR
 };
+
+enum EDecoderType
+{
+	eDT_Video,
+	eDT_Folder
+};
+
 class IVideoDecoder
 {
 public:
 	
-	static std::shared_ptr<IVideoDecoder> Produce();
+	static std::shared_ptr<IVideoDecoder> Produce(EDecoderType eDetectorType);
 
 	virtual bool Load(std::string path, EFrameFormat decodedFrameFormat) = 0;
 	

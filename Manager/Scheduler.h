@@ -20,8 +20,9 @@ public:
 	Scheduler();
 	~Scheduler();
 
-	bool Init(std::string path);
+	bool Init(std::string path, bool fromFolder);
 	void Execute();
+	void Render();
 
 private:
 

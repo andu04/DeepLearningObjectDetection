@@ -15,10 +15,10 @@ Scheduler::~Scheduler()
 	m_frame.release();
 }
 
-bool Scheduler::Init(std::string path)
+bool Scheduler::Init(std::string path, bool fromFolder)
 {
 	if (m_pVideoDecoder == nullptr)
-		m_pVideoDecoder = IVideoDecoder::Produce();
+		m_pVideoDecoder = IVideoDecoder::Produce(fromFolder ? eDT_Folder : eDT_Video);
 
 	if (m_pVehicleFramework == nullptr)
 		m_pVehicleFramework = IVehicleFramework::Produce();
@@ -32,6 +32,15 @@ bool Scheduler::Init(std::string path)
 
 	m_frame = cv::Mat(m_frameSize, CV_8UC3);
 
+	std::string model_file("D:\\Faster R-CNN Additional Files\\model\\ZF\\test.prototxt");
+	std::string trained_file("D:\\Faster R-CNN Additional Files\\model\\ZF\\ZF_faster_rcnn_final.caffemodel");
+
+	if (!m_pVehicleFramework->Init(model_file, trained_file))
+	{
+		m_pVehicleFramework->Release();
+		return false;
+	}
+
 	return true;
 }
 
@@ -42,18 +51,26 @@ void Scheduler::Execute()
 	int keyPressed = -1;
 
 	int frameSizeBytes = m_frameSize.width * m_frameSize.height * m_frame.channels();
-
+	m_pVideoDecoder->GetFrame(135);
 	byte* framePtr = m_pVideoDecoder->GetNextFrame(); 
 	if (framePtr == nullptr || frameSizeBytes == 0)
 		return;
 
-	memcpy(m_frame.data, framePtr, frameSizeBytes);
-
 	while (framePtr != nullptr)
 	{
-		cv::imshow("Movie", m_frame);
+		memcpy(m_frame.data, framePtr, frameSizeBytes);
+
+		if (!isPaused || showNextFrame)
+		{
+			double t0 = (double)cv::getTickCount();
+			m_pVehicleFramework->ProcessFrame(m_frame);
+			t0 = ((double)cv::getTickCount() - t0) * 1000.f / cv::getTickFrequency();
+			std::cout << "Time to process frame: " << t0 << "\n";
+			Render();
+		}
+
 		keyPressed = cv::waitKey(TIME_UNIT * MILLISECONDS_PER_SECOND);
-		
+
 		switch (keyPressed)
 		{
 		case eKP_ESC:
@@ -74,11 +91,15 @@ void Scheduler::Execute()
 			break;
 		}
 			
-		if (!isPaused || showNextFrame)
-		{
-			framePtr = m_pVideoDecoder->GetNextFrame();
-			if (framePtr != nullptr)
-				memcpy(m_frame.data, framePtr, frameSizeBytes);
-		}
+		framePtr = m_pVideoDecoder->GetNextFrame();
 	}
+}
+
+void Scheduler::Render()
+{
+	auto currentFrameDetections = m_pVehicleFramework->GetOutputVehicles();
+	for (const auto& vehicle : currentFrameDetections)
+		cv::rectangle(m_frame, vehicle.roi, cv::Scalar(0, 0, 255), 2);
+
+	cv::imshow("Movie", m_frame);
 }

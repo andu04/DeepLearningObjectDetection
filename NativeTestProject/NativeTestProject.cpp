@@ -9,8 +9,6 @@
 
 int main()
 {
-	//std::string model_file("D:\\Faster R-CNN Additional Files\\model\\ZF\\test.prototxt");
-	//std::string trained_file("D:\\Faster R-CNN Additional Files\\model\\ZF\\ZF_faster_rcnn_final.caffemodel");
 	//
 	//int GPUID = 0;
 	//Caffe::SetDevice(GPUID);
@@ -24,9 +22,14 @@ int main()
 	
 	auto scheduler = new Scheduler();
 
-	std::string videoPath = "C:\\Users\\Andi\\Pictures\\Camera Roll\\WIN_20171115_22_01_48_Pro.mp4";
-	if (!scheduler->Init(videoPath))
+	//std::string videoPath = "C:\\Users\\Andi\\Pictures\\Camera Roll\\WIN_20171115_22_01_48_Pro.mp4";
+	//if (!scheduler->Init(videoPath, false))
+	//	return -1;
+
+	std::string videoPath = "C:\\Users\\Andi\\Desktop\\Test\\2010_03_04_drive_0041";
+	if (!scheduler->Init(videoPath, true))
 		return -1;
+
 
 	scheduler->Execute();
 

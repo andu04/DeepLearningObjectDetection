@@ -63,7 +63,7 @@ void Detector::Detect(std::string im_name)
 	std::cout << "imagename " << im_name << endl;
 	float im_info[3];
 	float *data_buf = new float[height * width * 3];
-	float *boxes = NULL;
+	
 	float *sorted_pred_cls = NULL;
 	int *keep = NULL;
 	
@@ -115,56 +115,57 @@ void Detector::Detect(std::string im_name)
 	pred = new float[num * 5 * CLASS_NUM];
 	rois = net_->blob_by_name("rois")->cpu_data();
 	pred_cls = net_->blob_by_name("cls_prob")->cpu_data();
-	boxes = new float[num * 4];
+	
 		
 
 	pred_per_class = new float[num * 5];
 	sorted_pred_cls = new float[num * 5];
 	keep = new int[num];
 
+	vector<float> boxes;
 	for (int n = 0; n < num; n++)
 	{
 		for (int c = 0; c < 4; c++)
 		{
-			boxes[n * 4 + c] = rois[n * 5 + c + 1] / img_scale;
+			boxes.push_back(rois[n * 5 + c + 1] / img_scale);
 		}
 	}
 
 	bbox_transform_inv(num, bbox_delt, pred_cls, boxes, pred, cv_img.rows, cv_img.cols);
 
-	delete[]boxes;
+	
 	delete[]keep;
 	delete[]sorted_pred_cls;
 	delete[]data_buf;
 
 }
 
-void Detector::Detect(const cv::Mat& frame)
+void Detector::Detect(const cv::Mat& frame, vector<Prediction>& detections)
 {
 	if (frame.empty())
 		return;
 
-	cv::Mat cv_new(cv_img.rows, cv_img.cols, CV_32FC3, cv::Scalar(0, 0, 0));
+	cv::Mat cv_new(frame.rows, frame.cols, CV_32FC3, cv::Scalar(0, 0, 0));
 	
 
-	for (int h = 0; h < cv_img.rows; ++h)
+	for (int h = 0; h < frame.rows; ++h)
 	{
-		for (int w = 0; w < cv_img.cols; ++w)
+		for (int w = 0; w < frame.cols; ++w)
 		{
-			cv_new.at<cv::Vec3f>(cv::Point(w, h))[0] = float(cv_img.at<cv::Vec3b>(cv::Point(w, h))[0]) - float(102.9801);
-			cv_new.at<cv::Vec3f>(cv::Point(w, h))[1] = float(cv_img.at<cv::Vec3b>(cv::Point(w, h))[1]) - float(115.9465);
-			cv_new.at<cv::Vec3f>(cv::Point(w, h))[2] = float(cv_img.at<cv::Vec3b>(cv::Point(w, h))[2]) - float(122.7717);
+			cv_new.at<cv::Vec3f>(cv::Point(w, h))[0] = float(frame.at<cv::Vec3b>(cv::Point(w, h))[0]) - float(102.9801);
+			cv_new.at<cv::Vec3f>(cv::Point(w, h))[1] = float(frame.at<cv::Vec3b>(cv::Point(w, h))[1]) - float(115.9465);
+			cv_new.at<cv::Vec3f>(cv::Point(w, h))[2] = float(frame.at<cv::Vec3b>(cv::Point(w, h))[2]) - float(122.7717);
 
 		}
 	}
 
 	cv::Mat cv_resized;
 	
-	float img_scale = 1;
+	float img_scale = 0.4f;
 	float im_info[3];
 
-	int height = int(cv_img.rows * img_scale);
-	int width = int(cv_img.cols * img_scale);
+	int height = int(frame.rows * img_scale);
+	int width = int(frame.cols * img_scale);
 
 	cv::resize(cv_new, cv_resized, cv::Size(width, height));
 	im_info[0] = cv_resized.rows;
@@ -194,16 +195,29 @@ void Detector::Detect(const cv::Mat& frame)
 	int rois_num = net_->blob_by_name("rois")->num();
 
 	
-	float* boxes = new float[num * 4];
+	vector<float> boxes;
 	for (int n = 0; n < rois_num; n++)
 	{
 		for (int c = 0; c < 4; c++)
 		{
-			boxes[n * 4 + c] = rois[n * 5 + c + 1] / img_scale;
+			boxes.push_back(rois[n * 5 + c + 1] / img_scale);
 		}
 	}
 
-	bbox_transform_inv(num, bbox_delt, pred_cls, boxes, pred, cv_img.rows, cv_img.cols);
+	if (pred != nullptr)
+	{
+		delete[] pred;
+		delete[] pred_per_class;
+	}
+
+	pred = new float[rois_num * 5 * CLASS_NUM];
+	pred_per_class = new float[rois_num * 5];
+
+	bbox_transform_inv(rois_num, bbox_delt, pred_cls, boxes, pred, frame.rows, frame.cols);
+
+	num = rois_num;
+	GetResults(detections);
+	boxes.clear();
 }
 
 
@@ -243,7 +257,50 @@ void Detector::getResults(cv::Mat& img, float nms_threshold, float conf)
 	}
 }
 
+void Detector::GetResults(vector<Prediction>& detections)
+{
+	for (int i = 0; i < CLASS_NUM; i++)
+	{
+		for (int j = 0; j < num; j++)
+		{
+			for (int k = 0; k < 5; k++)
+			{
+				pred_per_class[j * 5 + k] = pred[(i*num + j) * 5 + k];
+			}
+		}
 
+		vector<vector<float> > pred_boxes;
+		vector<float> confidence;
+		for (int j = 0; j < num; j++)
+		{
+			vector<float> tmp_box;
+			tmp_box.push_back(pred_per_class[j * 5 + 0]);
+			tmp_box.push_back(pred_per_class[j * 5 + 1]);
+			tmp_box.push_back(pred_per_class[j * 5 + 2]);
+			tmp_box.push_back(pred_per_class[j * 5 + 3]);
+			pred_boxes.push_back(tmp_box);
+			confidence.push_back(pred_per_class[j * 5 + 4]);
+		}
+
+		if (!pred_boxes.empty() && !confidence.empty())
+		{
+			apply_nms(pred_boxes, confidence, NMS_THRESH);
+
+			for (int t = 0; t < pred_boxes.size(); t++)
+			{
+				if (confidence[t] > CONF_THRESH)
+				{
+					Prediction p;
+					p.classID = i;
+					p.confidence = confidence[t];
+					p.roi = cv::Rect(cv::Point(pred_boxes[t][0], pred_boxes[t][1]), cv::Point(pred_boxes[t][2], pred_boxes[t][3]));
+
+					detections.push_back(p);
+				}
+			}
+		}
+	}
+}
 
 /*
 * ===  FUNCTION  ======================================================================
@@ -258,7 +315,6 @@ void Detector::vis_detections(cv::Mat& image, vector<vector<float> > pred_boxes,
 		if (confidence[i] > conf_thresh)
 		{
 			cv::rectangle(image, cv::Point(pred_boxes[i][0], pred_boxes[i][1]), cv::Point(pred_boxes[i][2], pred_boxes[i][3]), cv::Scalar(255, 0, 0));
-
 		}
 	}
 }
@@ -296,7 +352,7 @@ void Detector::boxes_sort(const int num, const float* pred, float* sorted_pred)
 *  Description:  Compute bounding box regression value
 * =====================================================================================
 */
-void Detector::bbox_transform_inv(int num, const float* box_deltas, const float* pred_cls, float* boxes, float* pred, int img_height, int img_width)
+void Detector::bbox_transform_inv(int num, const float* box_deltas, const float* pred_cls, const vector<float>& boxes, float* pred, int img_height, int img_width)
 {
 	float width, height, ctr_x, ctr_y, dx, dy, dw, dh, pred_ctr_x, pred_ctr_y, pred_w, pred_h;
 	for (int i = 0; i< num; i++)

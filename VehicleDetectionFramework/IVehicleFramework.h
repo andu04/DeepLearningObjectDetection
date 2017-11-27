@@ -11,6 +11,31 @@ struct Vehicle
 	float confidence;
 };
 
+enum EPredictionClass
+{
+	ePD_Background = 0,
+	ePD_Aeroplane,
+	ePD_Bicycle,
+	ePD_Bird,
+	ePD_Boat,
+	ePD_Bottle,
+	ePD_Bus,
+	ePD_Car,
+	ePD_Cat,
+	ePD_Chair,
+	ePD_Cow,
+	ePD_Diningtable,
+	ePD_Dog,
+	ePD_Horse,
+	ePD_Motorbike,
+	ePD_Person,
+	ePD_Pottedplant,
+	ePD_Sheep,
+	ePD_Sofa,
+	ePD_Train,
+	ePD_TVMonitor
+};
+
 class IVehicleFramework
 {
 public:

@@ -39,5 +39,8 @@ private:
 	std::shared_ptr<Detector> m_pVehicleDetector;
 	std::vector<VehicleCandidate> m_vehicleCandidates;
 	std::vector<Vehicle> m_outputVehicles;
+
+	cv::Rect m_searchRoi;
+	cv::Size m_originalFrameSize;
 };
 

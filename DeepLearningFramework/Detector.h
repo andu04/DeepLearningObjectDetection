@@ -20,9 +20,16 @@ using namespace std;
 //background and car
 #define CLASS_NUM 21
 
-#define CONF_THRESH 0.99
+#define CONF_THRESH 0.95
 #define NMS_THRESH 0.5
 
+
+struct Prediction
+{
+	cv::Rect roi;
+	float confidence;
+	int classID;
+};
 /*
 * ===  Class  ======================================================================
 *         Name:  Detector
@@ -34,10 +41,10 @@ class Detector {
 public:
 	Detector(const string& model_file, const string& weights_file);
 
-	void Detect(const cv::Mat& image);
+	void Detect(const cv::Mat& image, vector<Prediction>& detections);
 	void Detect(std::string im_name);
 
-	void bbox_transform_inv(const int num, const float* box_deltas, const float* pred_cls, float* boxes, float* pred, int img_height, int img_width);
+	void bbox_transform_inv(const int num, const float* box_deltas, const float* pred_cls, const vector<float>& boxes, float* pred, int img_height, int img_width);
 	void vis_detections(cv::Mat& image, vector<vector<float> > pred_boxes, vector<float> confidence, float conf_thresh, cv::Scalar color);
 	void boxes_sort(int num, const float* pred, float* sorted_pred);
 	void apply_nms(vector<vector<float> > &pred_boxes, vector<float> &confidence, float nms_threshold);
@@ -53,8 +60,12 @@ public:
 		}
 	}
 private:
-	boost::shared_ptr<Net<float> > net_;
+	
 	Detector() { pred_per_class = nullptr; }
+	void GetResults(vector<Prediction>& detections);
+
+	boost::shared_ptr<Net<float> > net_;
+	
 
 	
 	float* pred_per_class;
