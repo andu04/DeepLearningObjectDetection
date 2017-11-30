@@ -42,35 +42,31 @@ public:
 	Detector(const string& model_file, const string& weights_file);
 
 	void Detect(const cv::Mat& image, vector<Prediction>& detections);
-	void Detect(std::string im_name);
-
-	void bbox_transform_inv(const int num, const float* box_deltas, const float* pred_cls, const vector<float>& boxes, float* pred, int img_height, int img_width);
-	void vis_detections(cv::Mat& image, vector<vector<float> > pred_boxes, vector<float> confidence, float conf_thresh, cv::Scalar color);
+	
+	void bbox_transform_inv(const float* box_deltas, const float* pred_cls, const float* rois, float img_scale, int img_height, int img_width);
 	void boxes_sort(int num, const float* pred, float* sorted_pred);
 	void apply_nms(vector<vector<float> > &pred_boxes, vector<float> &confidence, float nms_threshold);
 
-	void getResults(cv::Mat& img, float nms_threshold, float confidence);
-
-	~Detector()
-	{
-		if (pred_per_class != nullptr)
-		{
-			delete[] pred_per_class;
-			delete[] pred;
-		}
-	}
+	~Detector() { }
 private:
 	
-	Detector() { pred_per_class = nullptr; }
+	Detector() {}
 	void GetResults(vector<Prediction>& detections);
 
 	boost::shared_ptr<Net<float> > net_;
 	
 
 	
-	float* pred_per_class;
+	/*float* pred_per_class;
 	float* pred;
-	int num;
+	int num;*/
+
+	vector<float> predictions;
+	vector<float> predictionsPerClass;
+	int predictionsCount;
+
+	std::vector<Prediction> m_predictions;
+
 	cv::Mat cv_img;
 };
 
